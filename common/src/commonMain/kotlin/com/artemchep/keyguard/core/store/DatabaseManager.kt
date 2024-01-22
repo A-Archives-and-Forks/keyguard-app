@@ -44,6 +44,7 @@ import kotlinx.serialization.InternalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.serializer
+import java.util.UUID
 
 interface DatabaseManager {
     fun get(): IO<Database>
@@ -144,8 +145,14 @@ class DatabaseManagerImpl(
         block: suspend (Database) -> T,
     ) = dbIo
         .effectMap(Dispatchers.IO) { db ->
+            val id = UUID.randomUUID().toString()
+            logRepository.post("DEBUG_SYNC", "mutate db -- request $id")
             mutex.withLock {
+                logRepository.post("DEBUG_SYNC", "mutate db -- before $id")
                 block(db.database)
+                    .also {
+                        logRepository.post("DEBUG_SYNC", "mutate db -- after $id")
+                    }
             }
         }
 

@@ -86,9 +86,13 @@ class SyncByTokenImpl(
                     user = latestUser,
                     syncer = dbSyncer,
                 )
+                logRepository.post("DEBUG_SYNC", "before sync lock")
                 mutex.withLock {
+                    logRepository.post("DEBUG_SYNC", "before sync")
                     syncEngine.sync()
+                    logRepository.post("DEBUG_SYNC", "after sync")
                 }
+                logRepository.post("DEBUG_SYNC", "after sync lock")
 //                sss(
 //                    logRepository = logRepository,
 //                    cipherEncryptor = cipherEncryptor,
@@ -102,6 +106,8 @@ class SyncByTokenImpl(
         }
         .biFlatTap(
             ifException = { e ->
+                logRepository.post("DEBUG_SYNC", "got sync exception $e")
+                e.printStackTrace()
                 db.mutate {
                     val dao = it.metaQueries
                     val existingMeta = dao
@@ -138,6 +144,7 @@ class SyncByTokenImpl(
                 }
             },
             ifSuccess = {
+                logRepository.post("DEBUG_SYNC", "got sync success")
                 db.mutate {
                     val now = Clock.System.now()
                     val meta = BitwardenMeta(

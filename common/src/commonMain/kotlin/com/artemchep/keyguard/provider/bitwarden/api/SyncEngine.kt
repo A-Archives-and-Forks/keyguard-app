@@ -900,6 +900,7 @@ class SyncEngine(
         //
         // Sends
         //
+        logRepository.post("DEBUG_SYNC", "before sync sends!")
 
         fun BitwardenCrCta.sendDecoder(
             entity: SyncSends,
@@ -1016,6 +1017,8 @@ class SyncEngine(
                 logRepository.post(TAG, msg, logLevel)
             },
         )
+
+        logRepository.post("DEBUG_SYNC", "after sync sends!")
 
         Unit
     }
