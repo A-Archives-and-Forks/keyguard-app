@@ -147,13 +147,13 @@ class DatabaseManagerImpl(
         .effectMap(Dispatchers.IO) { db ->
             val id = UUID.randomUUID().toString()
             logRepository.post("DEBUG_SYNC", "mutate db -- request $id")
-            mutex.withLock {
+          //  mutex.withLock {
                 logRepository.post("DEBUG_SYNC", "mutate db -- before $id")
                 block(db.database)
                     .also {
                         logRepository.post("DEBUG_SYNC", "mutate db -- after $id")
                     }
-            }
+         //   }
         }
 
     /**
@@ -162,10 +162,10 @@ class DatabaseManagerImpl(
      */
     override fun changePassword(newMasterKey: MasterKey) = dbIo
         .effectMap(Dispatchers.IO) { db ->
-            mutex.withLock {
+            //mutex.withLock {
                 db.changePassword(newMasterKey)
                     .bind()
-            }
+        //    }
         }
 }
 
