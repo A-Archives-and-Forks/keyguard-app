@@ -70,17 +70,11 @@ suspend fun merge(
         val strength = local?.login?.passwordStrength
             .takeIf { local?.login?.password == remote.login.password }
         // Generate a password strength badge.
-            ?: getPasswordStrength(password)
-                .attempt()
-                .bind()
-                .getOrNull()
-                ?.let { ps ->
-                    BitwardenCipher.Login.PasswordStrength(
-                        password = password,
-                        crackTimeSeconds = ps.crackTimeSeconds,
-                        version = ps.version,
-                    )
-                }
+            ?: BitwardenCipher.Login.PasswordStrength(
+                password = password,
+                crackTimeSeconds = 0L,
+                version = 0L,
+            )
         login = login?.copy(
             passwordStrength = strength,
         )
@@ -171,14 +165,20 @@ suspend fun <
 
     val localPutCipherDecoded = df.localPutCipher
         .map { (localOrNull, remote) ->
+            val remoteId = remote.let(remoteLens.getId)
             ioEffect {
-                val remoteId = remote.let(remoteLens.getId)
                 onLog(
                     "[local] Decoding $remoteId $name entry...",
                     LogLevel.DEBUG,
                 )
                 remoteDecoder(remote, localOrNull)
             }
+                .measure { duration, _ ->
+                    onLog(
+                        "[local] Decoding $remoteId $name entry took $duration",
+                        LogLevel.DEBUG,
+                    )
+                }
                 .handleError { e ->
                     val remoteId = remoteLens.getId(remote)
                     val localId = localOrNull?.let(localLens.getLocalId)

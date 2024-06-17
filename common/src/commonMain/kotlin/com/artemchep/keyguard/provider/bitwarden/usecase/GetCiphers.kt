@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.shareIn
 import org.kodein.di.DirectDI
 import org.kodein.di.instance
@@ -47,6 +48,12 @@ class GetCiphersImpl(
                 .map {
                     it.toDomain(getPasswordStrength)
                 }
+        }
+        .onEach {
+            logRepository.add(
+                tag = TAG,
+                message = "Got ciphers update: ${it.size} in total",
+            )
         }
         .withLogTimeOfFirstEvent(logRepository, TAG)
         .flowOn(dispatcher)
