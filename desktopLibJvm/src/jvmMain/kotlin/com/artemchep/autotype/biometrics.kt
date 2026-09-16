@@ -10,6 +10,7 @@ private const val SECURITY_DEVICE_LOCKED_CODE = 3
 private const val UNAVAILABLE_CODE = 4
 private const val USER_PREFERS_PASSWORD_CODE = 5
 private const val UNKNOWN_CODE = 6
+private const val POLICY_NOT_INSTALLED_CODE = 7
 
 public enum class BiometricsStatus(internal val code: Int) {
     SUCCESS(0),
@@ -19,6 +20,12 @@ public enum class BiometricsStatus(internal val code: Int) {
     UNAVAILABLE(UNAVAILABLE_CODE),
     USER_PREFERS_PASSWORD(USER_PREFERS_PASSWORD_CODE),
     UNKNOWN(UNKNOWN_CODE),
+
+    /**
+     * Linux only: the polkit policy that declares the unlock
+     * action is missing and could not be installed.
+     */
+    POLICY_NOT_INSTALLED(POLICY_NOT_INSTALLED_CODE),
     ;
 
     internal companion object {
@@ -49,7 +56,10 @@ public suspend fun biometricsDeleteCredential() {
 }
 
 /**
- * Wraps [secret] with a Windows Hello protected key, then immediately asks
+ * On Linux, stores [secret] in protected process-local storage and returns an
+ * opaque handle. This does not prompt; enrollment must verify the user first.
+ *
+ * On Windows, wraps [secret] with a Windows Hello protected key, then immediately asks
  * Windows Hello to unwrap it. A key created by this operation is removed if
  * verification fails, while a pre-existing key is preserved.
  *
@@ -80,15 +90,24 @@ public suspend fun biometricsUnwrapSecret(
     windowHandle: Long,
     title: String,
     wrappedSecret: ByteArray,
-): ByteArray = withContext(Dispatchers.IO) {
-    withDesktopLib { lib ->
-        biometricsTransformSecretOrThrow(
-            lib = lib,
-            windowHandle = windowHandle,
-            title = title,
-            input = wrappedSecret,
-            decrypt = true,
-        )
+): ByteArray {
+    var pending: ByteArray? = null
+    try {
+        return withContext(Dispatchers.IO) {
+            withDesktopLib { lib ->
+                biometricsTransformSecretOrThrow(
+                    lib = lib,
+                    windowHandle = windowHandle,
+                    title = title,
+                    input = wrappedSecret,
+                    decrypt = true,
+                ).also { pending = it }
+            }
+        }.also { pending = null }
+    } finally {
+        // withContext may discard a result if its caller was cancelled while
+        // the native prompt was running. Erase it unless ownership transferred.
+        pending?.fill(0)
     }
 }
 
